@@ -1,0 +1,8 @@
+// Admin-Check für Frontend
+app.get('/checkAdmin', (req, res) => {
+  if(req.session.user && req.session.user.isAdmin === 1){
+    res.json({ isAdmin: true });
+  } else {
+    res.json({ isAdmin: false });
+  }
+});
