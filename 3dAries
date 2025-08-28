@@ -1,0 +1,87 @@
+const express = require('express');
+const multer = require('multer');
+const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
+const session = require('express-session');
+const path = require('path');
+const app = express();
+
+// --- Setup ---
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+app.use('/uploads', express.static('uploads'));
+app.use(session({
+  secret: 'geheimesSessionSecret',
+  resave: false,
+  saveUninitialized: true
+}));
+
+// --- Datenbank ---
+const db = new sqlite3.Database('database.db');
+db.serialize(() => {
+  db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, isAdmin INTEGER)");
+});
+
+// --- Admin erstellen ---
+const adminPassword = 'AdminPasswort123';
+const saltRounds = 10;
+bcrypt.hash(adminPassword, saltRounds, (err, hash) => {
+  db.run("INSERT OR IGNORE INTO users (username, password, isAdmin) VALUES (?, ?, ?)", ['admin', hash, 1]);
+});
+
+// --- Multer für Uploads ---
+const storage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+const upload = multer({ storage: storage });
+
+// --- Routes ---
+// Registrierung
+app.post('/register', (req, res) => {
+  const { username, password } = req.body;
+  bcrypt.hash(password, saltRounds, (err, hash) => {
+    db.run("INSERT INTO users (username, password, isAdmin) VALUES (?, ?, 0)", [username, hash], function(err) {
+      if (err) return res.send('Benutzername existiert bereits');
+      res.redirect('/login.html');
+    });
+  });
+});
+
+// Login
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
+    if (!user) return res.send('Benutzer nicht gefunden');
+    bcrypt.compare(password, user.password, (err, match) => {
+      if (match) {
+        req.session.user = { id: user.id, username: user.username, isAdmin: user.isAdmin };
+        res.redirect('/');
+      } else {
+        res.send('Falsches Passwort');
+      }
+    });
+  });
+});
+
+// Admin Upload
+app.post('/upload', upload.single('image'), (req, res) => {
+  if (!req.session.user || req.session.user.isAdmin !== 1) return res.send('Nur Admin darf Bilder hochladen');
+  res.redirect('/');
+});
+
+// Galerie JSON
+app.get('/gallery', (req, res) => {
+  const fs = require('fs');
+  const files = fs.readdirSync('./uploads/').map(f => '/uploads/' + f);
+  res.json(files);
+});
+
+// Logout
+app.get('/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/');
+});
+
+// --- Server starten ---
+app.listen(3000, () => console.log('Server läuft auf http://localhost:3000'));
