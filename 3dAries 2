@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3dAries Galerie</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white">
+
+  <header class="p-6 text-center text-amber-400">
+    <h1 class="text-4xl font-bold">3dAries</h1>
+    <p>3D Artist Portfolio</p>
+  </header>
+
+  <!-- Admin Upload -->
+  <section id="adminUpload" class="p-6 hidden">
+    <h2 class="text-2xl mb-4">Bilder hochladen (Admin)</h2>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+      <input type="file" name="image" class="p-2 rounded text-black" required>
+      <button type="submit" class="bg-amber-400 text-gray-900 px-4 py-2 rounded">Hochladen</button>
+    </form>
+  </section>
+
+  <!-- Galerie -->
+  <section class="p-6">
+    <h2 class="text-2xl mb-4">Galerie</h2>
+    <div id="gallery" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+  </section>
+
+  <script>
+    // Galerie laden
+    fetch('/gallery').then(res => res.json()).then(files => {
+      const gallery = document.getElementById('gallery');
+      files.forEach(f => {
+        const img = document.createElement('img');
+        img.src = f;
+        img.className = 'w-full h-64 object-cover rounded-lg shadow-lg';
+        gallery.appendChild(img);
+      });
+    });
+
+    // Admin Upload sichtbar machen, wenn angemeldet als Admin
+    fetch('/checkAdmin').then(res => res.json()).then(data => {
+      if(data.isAdmin) document.getElementById('adminUpload').classList.remove('hidden');
+    });
+  </script>
+
+</body>
+</html>
